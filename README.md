@@ -49,6 +49,8 @@ Losses are combined via weighted objectives to explore the impact of shared repr
 ---
 
 ## ⚙️ Methods & Experiments
+python version used = 3.12.8
+
 - Fine-tune BERT with custom dual-task heads.
 - Compare multi-task vs single-task and sequential training strategies.
 - Evaluate using **F1-score**, **precision**, **recall**, and **ROC-AUC**.
