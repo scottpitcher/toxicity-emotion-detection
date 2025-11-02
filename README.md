@@ -1,7 +1,7 @@
 # Emotion-Aware Toxicity Detection
 
 ### Deep Learning Project — Cornell Tech  
-**Contributors:** Scott Pitcher (sp2668), Kendall Miller (kkm88), Maria Miskaryan (mm3555)  
+**Contributors:** Scott Pitcher, Kendall Miller, Maria Miskaryan  
 **Course:** Deep Learning (CS5785)  
 
 ---
