@@ -1,5 +1,8 @@
 # Ignore the virtual environment
 .venv/*
 
-# (temp) ignore data
-data
+# ignore data
+*.csv
+*.tsv
+*.pt
+
