@@ -42,36 +42,91 @@ def clean_comment(text: str) -> str:
 
 
 def process_file(file_path: Path, processed_dir: Path):
-    """Load a CSV/TSV, clean comment_text, and save processed version."""
+    """Load a CSV/TSV, clean comment_text, normalize labels, and save processed version."""
     sep = "\t" if file_path.suffix == ".tsv" else ","
     print(f"Processing {file_path.name} ...")
 
+    # STEP 1 — Load file
     try:
-        df = pd.read_csv(file_path, sep=sep, header=None if file_path.suffix == ".tsv" else 'infer')
+        # TSV = no headers; CSV = infer headers
+        df = pd.read_csv(file_path, sep=sep, header=None if file_path.suffix == ".tsv" else "infer")
     except Exception as e:
         print(f"Failed to read {file_path.name}: {e}")
         return
 
-    # Handle files without proper headers (this is for the emotion data)
-    if all(str(col).isdigit() for col in df.columns):
-        # Guess the likely structure, assume comment text is in the first column
-        df.columns = ["comment_text"] + [f"label_{i}" for i in range(1, len(df.columns))]
-        print(f"File {file_path.name} had no headers. Assigned default column names.")
-    elif "comment_text" not in df.columns:
-        print(f"Skipped {file_path.name}: no 'comment_text' column found.")
-        return
+    # CASE A — TSV FILES (GoEmotions-style)
+    if file_path.suffix == ".tsv":
+        # name the columns explicitly
+        df.columns = ["comment_text", "label_encoded", "drop_col"]
 
-    # Apply cleaning
+        # drop the third column
+        df = df.drop(columns=["drop_col"])
+
+        # load emotion map from file
+        map_path = file_path.parent / "emotion_map.txt"
+        with open(map_path, "r", encoding="utf-8") as f:
+            emotion_list = [line.strip() for line in f]
+
+        #  FIX: MULTI-LABEL HANDLING 
+
+        # split "3,10" -> ["3","10"]
+        df["label_encoded"] = df["label_encoded"].astype(str).str.split(",")
+
+        # convert each to int
+        df["label_encoded"] = df["label_encoded"].apply(
+            lambda lst: [int(x) for x in lst]
+        )
+
+        # decode to label text
+        df["label_text"] = df["label_encoded"].apply(
+            lambda lst: [emotion_list[x] for x in lst]
+        )
+
+    # CASE B — CSV FILES (Jigsaw Toxicity)
+    # Format: id, comment_text, one-hot toxicity labels
+    # We convert the one-hot row to a single encoded label
+    else:
+        # toxicity train columns
+        train_cols = ["id", "comment_text",
+                    "toxic","severe_toxic","obscene",
+                    "threat","insult","identity_hate"]
+
+        if all(col in df.columns for col in train_cols):
+            # TRAIN FILE
+            one_hot = df[["toxic","severe_toxic","obscene","threat","insult","identity_hate"]]
+
+            # integer encoding
+            df["label_encoded"] = one_hot.values.argmax(axis=1)
+
+            # integer → label string
+            toxicity_labels = ["toxic","severe_toxic","obscene","threat","insult","identity_hate"]
+            df["label_text"] = df["label_encoded"].apply(lambda x: toxicity_labels[x])
+
+            # keep relevant columns
+            df = df[["id","comment_text","label_encoded","label_text"]]
+
+        elif all(col in df.columns for col in ["id", "comment_text"]):
+            # TEST FILE (no labels)
+            df["label_encoded"] = None
+            df["label_text"] = None
+
+            df = df[["id","comment_text","label_encoded","label_text"]]
+
+        else:
+            print(f"Skipped {file_path.name}: unknown CSV format.")
+            return
+
+    # STEP 3 — Cleaning the text
     df["clean_text"] = df["comment_text"].apply(clean_comment)
 
-    # Save output
+    # STEP 4 — Save processed file
     output_file = processed_dir / f"{file_path.stem}_processed.csv"
     df.to_csv(output_file, index=False)
     print(f"Saved cleaned file to: {output_file}\n")
 
 
 if __name__ == "__main__":
-    data_dir = Path("../data")
+    data_dir = Path(__file__).resolve().parent.parent / "data"
     processed_dir = data_dir / "processed"
     processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -82,6 +137,7 @@ if __name__ == "__main__":
         print(f"Found {len(files)} file(s) to process.\n")
 
     for file_path in files:
-        process_file(file_path, processed_dir)
+        if not file_path.name.endswith("_processed.csv"):
+            process_file(file_path, processed_dir)
 
     print("All files processed.")
