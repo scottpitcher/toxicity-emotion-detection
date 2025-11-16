@@ -13,55 +13,74 @@ from transformers import BertModel, BertTokenizer
 import torch.nn.functional as F
 
 class MultiTaskBERT(nn.Module):
-    def __init__(self, bert_model_name='bert-base-uncased', num_toxicity_labels=6, num_emotion_labels=11):
-        super(MultiTaskBERT, self).__init__()
-        
-        # Load pretrained BERT model
+    def __init__(
+        self,
+        bert_model_name: str = 'bert-base-uncased',
+        num_toxicity_labels: int = 6,
+        num_emotion_labels: int = 28,      # GoEmotions = 28 labels
+        dropout_prob: float = 0.1,
+        lambda_tox: float = 1.0,
+        lambda_emo: float = 1.0
+    ):
+        super().__init__()
+
+        self.lambda_tox = lambda_tox
+        self.lambda_emo = lambda_emo
+
+        # Load pretrained BERT
         self.bert = BertModel.from_pretrained(bert_model_name)
-        
-        # Shared BERT Encoder
+        self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
+
+        # Shared encoder
         self.shared_encoder = self.bert
-        
-        # Toxicity classification head
-        self.toxicity_head = nn.Linear(self.bert.config.hidden_size, num_toxicity_labels)
-        
-        # Emotion classification head
-        self.emotion_head = nn.Linear(self.bert.config.hidden_size, num_emotion_labels)
-        
+
+        # Task-specific heads
+        hidden_size = self.bert.config.hidden_size
+        self.toxicity_head = nn.Linear(hidden_size, num_toxicity_labels)
+        self.emotion_head = nn.Linear(hidden_size, num_emotion_labels)
+
     def forward(self, input_ids, attention_mask):
-        # Get BERT outputs
-        outputs = self.shared_encoder(input_ids=input_ids, attention_mask=attention_mask)
-        
-        # Use the [CLS] token representation for classification
-        cls_output = outputs.last_hidden_state[:, 0, :]  # shape: (batch_size, hidden_size)
-        
-        # Get logits for both tasks
-        toxicity_logits = self.toxicity_head(cls_output)  # shape: (batch_size, num_toxicity_labels)
-        emotion_logits = self.emotion_head(cls_output)    # shape: (batch_size, num_emotion_labels)
-        
+        outputs = self.shared_encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        )
+
+        # CLS embedding
+        cls_output = outputs.last_hidden_state[:, 0, :]
+        cls_output = self.dropout(cls_output)
+
+        # Task logits
+        toxicity_logits = self.toxicity_head(cls_output)
+        emotion_logits = self.emotion_head(cls_output)
+
         return toxicity_logits, emotion_logits
 
-def compute_joint_loss(toxicity_logits, emotion_logits, toxicity_labels, emotion_labels, lambda_tox=1.0, lambda_emotion=1.0):
-    # Define loss functions
-    criterion_tox = nn.BCEWithLogitsLoss()
-    criterion_emotion = nn.BCEWithLogitsLoss()
-    
-    # Compute individual losses
-    loss_tox = criterion_tox(toxicity_logits, toxicity_labels)
-    loss_emotion = criterion_emotion(emotion_logits, emotion_labels)
-    
-    # Compute joint loss with adjustable weights
-    joint_loss = lambda_tox * loss_tox + lambda_emotion * loss_emotion
-    
-    return joint_loss
+
+# Joint Loss Function
+def compute_joint_loss(
+    toxicity_logits, emotion_logits,
+    toxicity_labels, emotion_labels,
+    lambda_tox=1.0, lambda_emotion=1.0
+):
+    """
+    Multi-task loss:
+    L = λ_tox * BCE(tox) + λ_emo * BCE(emotion)
+    """
+    criterion = nn.BCEWithLogitsLoss()
+
+    loss_tox = criterion(toxicity_logits, toxicity_labels)
+    loss_emo = criterion(emotion_logits, emotion_labels)
+
+    return lambda_tox * loss_tox + lambda_emotion * loss_emo
 
 if __name__ == "__main__":
-    # Example usage
     model = MultiTaskBERT()
-    input_ids = torch.randint(0, 30522, (8, 128))  # Example input
-    attention_mask = torch.ones((8, 128))           # Example attention mask
-    
-    toxicity_logits, emotion_logits = model(input_ids, attention_mask)
-    
-    print("Toxicity logits shape:", toxicity_logits.shape)
-    print("Emotion logits shape:", emotion_logits.shape)
+
+    # dummy inputs
+    input_ids = torch.randint(0, 30522, (8, 128))
+    attention_mask = torch.ones((8, 128))
+
+    tox_logits, emo_logits = model(input_ids, attention_mask)
+
+    print("Toxicity logits:", tox_logits.shape)   # (8, 6)
+    print("Emotion logits:", emo_logits.shape)     # (8, 28)
