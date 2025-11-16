@@ -69,9 +69,11 @@ def process_dataset(csv_path, output_dir, is_emotion=False):
         labels = torch.tensor(df["label_encoded"].tolist(), dtype=torch.long)
 
     # split train/val/test (80/10/10)
+    ## Train, test/val
     train_idx, temp_idx = train_test_split(
         list(range(len(df))), test_size=0.20, random_state=42
     )
+    ## Val, test
     val_idx, test_idx = train_test_split(
         temp_idx, test_size=0.50, random_state=42
     )

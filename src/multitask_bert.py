@@ -27,15 +27,13 @@ class MultiTaskBERT(nn.Module):
         self.lambda_tox = lambda_tox
         self.lambda_emo = lambda_emo
 
-        # Load pretrained BERT
-        self.bert = BertModel.from_pretrained(bert_model_name)
-        self.dropout = nn.Dropout(self.bert.config.hidden_dropout_prob)
-
         # Shared encoder
-        self.shared_encoder = self.bert
+        self.shared_encoder = BertModel.from_pretrained(bert_model_name)
+
+        self.dropout = nn.Dropout(self.shared_encoder.config.hidden_dropout_prob)
 
         # Task-specific heads
-        hidden_size = self.bert.config.hidden_size
+        hidden_size = self.shared_encoder.config.hidden_size
         self.toxicity_head = nn.Linear(hidden_size, num_toxicity_labels)
         self.emotion_head = nn.Linear(hidden_size, num_emotion_labels)
 
@@ -66,21 +64,46 @@ def compute_joint_loss(
     Multi-task loss:
     L = λ_tox * BCE(tox) + λ_emo * BCE(emotion)
     """
-    criterion = nn.BCEWithLogitsLoss()
+    # Toxicity: multi-class (one label per sample)
+    criterion_tox = nn.CrossEntropyLoss()
+    
+    # Emotion: multi-label (multiple labels per sample)
+    criterion_emo = nn.BCEWithLogitsLoss()
 
-    loss_tox = criterion(toxicity_logits, toxicity_labels)
-    loss_emo = criterion(emotion_logits, emotion_labels)
+    loss_tox = criterion_tox(toxicity_logits, toxicity_labels)  # labels are long
+    loss_emo = criterion_emo(emotion_logits, emotion_labels)    # labels are float
 
     return lambda_tox * loss_tox + lambda_emotion * loss_emo
 
 if __name__ == "__main__":
+    print("Testing MultiTaskBERT model...")
+    
     model = MultiTaskBERT()
 
-    # dummy inputs
-    input_ids = torch.randint(0, 30522, (8, 128))
-    attention_mask = torch.ones((8, 128))
+    # Dummy inputs
+    batch_size = 8
+    seq_length = 128
+    
+    input_ids = torch.randint(0, 30522, (batch_size, seq_length))
+    attention_mask = torch.ones((batch_size, seq_length))
 
+    # Forward pass
     tox_logits, emo_logits = model(input_ids, attention_mask)
 
-    print("Toxicity logits:", tox_logits.shape)   # (8, 6)
-    print("Emotion logits:", emo_logits.shape)     # (8, 28)
+    print(f"Toxicity logits shape: {tox_logits.shape}")
+    print(f"Emotion logits shape: {emo_logits.shape}")
+    
+    # Test loss computation
+    dummy_tox_labels = torch.randint(0, 6, (batch_size,))
+    dummy_emo_labels = torch.rand((batch_size, 28))
+    dummy_emo_labels = (dummy_emo_labels > 0.5).float()
+    
+    # Compute joint loss
+    loss = compute_joint_loss(
+        tox_logits, emo_logits,
+        dummy_tox_labels, dummy_emo_labels,
+        lambda_tox=1.0, lambda_emotion=1.0
+    )
+    
+    print(f"Combined loss: {loss.item():.4f}")
+    print("\nModel architecture test passed!")
