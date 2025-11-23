@@ -2,7 +2,7 @@
 """
 This script does the following:
 1. Load's in pretrained BERT model
-2. creat our models arch (shared BERT Encoder -> toxicity or emotion head)
+2. create our models arch (shared BERT Encoder -> toxicity or emotion head)
 3. Defines the joint loss fn (L = lambda(tox)*L_tox + lambda(emotion)*L_emotion)
 4. Implements adjustable loss weighting
 5. build the train loop for model
@@ -17,15 +17,12 @@ class MultiTaskBERT(nn.Module):
         self,
         bert_model_name: str = 'bert-base-uncased',
         num_toxicity_labels: int = 6,
-        num_emotion_labels: int = 28,      # GoEmotions = 28 labels
+        num_emotion_labels: int = 28, 
         dropout_prob: float = 0.1,
         lambda_tox: float = 1.0,
         lambda_emo: float = 1.0
     ):
         super().__init__()
-
-        self.lambda_tox = lambda_tox
-        self.lambda_emo = lambda_emo
 
         # Shared encoder
         self.shared_encoder = BertModel.from_pretrained(bert_model_name)
@@ -62,16 +59,14 @@ def compute_joint_loss(
 ):
     """
     Multi-task loss:
-    L = λ_tox * BCE(tox) + λ_emo * BCE(emotion)
+    L = λ_tox * BCEWithLogits(tox) + λ_emo * BCEWithLogits(emotion)
     """
-    # Toxicity: multi-class (one label per sample)
-    criterion_tox = nn.CrossEntropyLoss()
-    
-    # Emotion: multi-label (multiple labels per sample)
+    # Both are now multi-label
+    criterion_tox = nn.BCEWithLogitsLoss()
     criterion_emo = nn.BCEWithLogitsLoss()
 
-    loss_tox = criterion_tox(toxicity_logits, toxicity_labels)  # labels are long
-    loss_emo = criterion_emo(emotion_logits, emotion_labels)    # labels are float
+    loss_tox = criterion_tox(toxicity_logits, toxicity_labels.float())
+    loss_emo = criterion_emo(emotion_logits, emotion_labels.float())
 
     return lambda_tox * loss_tox + lambda_emotion * loss_emo
 
@@ -94,7 +89,8 @@ if __name__ == "__main__":
     print(f"Emotion logits shape: {emo_logits.shape}")
     
     # Test loss computation
-    dummy_tox_labels = torch.randint(0, 6, (batch_size,))
+    dummy_tox_labels = torch.rand((batch_size, 6))
+    dummy_tox_labels = (dummy_tox_labels > 0.5).float()  # Multi-hot encoding
     dummy_emo_labels = torch.rand((batch_size, 28))
     dummy_emo_labels = (dummy_emo_labels > 0.5).float()
     

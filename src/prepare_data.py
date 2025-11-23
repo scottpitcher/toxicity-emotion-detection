@@ -49,8 +49,8 @@ def process_dataset(csv_path, output_dir, is_emotion=False):
     # load CSV
     df = pd.read_csv(csv_path)
 
-    df = df[df["clean_text"].notnull()]                # drop NaN
-    df = df[df["clean_text"].str.strip() != ""]        # drop empty strings
+    df = df[df["clean_text"].notnull()]    
+    df = df[df["clean_text"].str.strip() != ""]  
 
     # enforce clean_text as string
     texts = df["clean_text"].astype(str).tolist()

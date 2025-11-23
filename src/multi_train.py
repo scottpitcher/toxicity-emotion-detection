@@ -1,0 +1,73 @@
+# multi_train.py
+"""
+Multi-task training script: Trains BERT on toxicity and emotion jointly.
+Uses separate dataloaders and alternates between tasks.
+"""
+
+import torch
+import torch.nn as nn
+from tqdm import tqdm
+import os
+import logging
+from train_utils import load_both_datasets, train_multitask
+from model import MultiTaskBERT
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def main():
+    """Main training function for multi-task."""
+    
+    # Hyperparameters
+    BATCH_SIZE = 16
+    EPOCHS = 3
+    LEARNING_RATE = 2e-5
+    MODEL_SAVE_PATH = "models/multitask_bert.pt"
+    GRADIENT_CLIP = 1.0
+    LAMBDA_TOX = 1.0
+    LAMBDA_EMO = 1.0
+    
+    DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
+    logger.info(f"Using device: {DEVICE}")
+    
+    try:
+        # Load both datasets
+        logger.info("Loading toxicity and emotion data...")
+        tox_train, tox_val, emo_train, emo_val = load_both_datasets(batch_size=BATCH_SIZE)
+        
+        # Initialize multi-task model
+        logger.info("Initializing MultiTaskBERT model...")
+        model = MultiTaskBERT(lambda_tox=LAMBDA_TOX, lambda_emo=LAMBDA_EMO)
+        
+        # Train model
+        logger.info("Starting multi-task training...")
+        model = train_multitask(
+            model,
+            tox_train,
+            tox_val,
+            emo_train,
+            emo_val,
+            epochs=EPOCHS,
+            lr=LEARNING_RATE,
+            device=DEVICE,
+            save_path=MODEL_SAVE_PATH,
+            gradient_clip=GRADIENT_CLIP
+        )
+        
+        logger.info(f"\nMulti-task training complete! Model saved to {MODEL_SAVE_PATH}")
+        
+    except FileNotFoundError as e:
+        logger.error(f"Data loading error: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Training error: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()
