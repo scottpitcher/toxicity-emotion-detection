@@ -68,7 +68,7 @@ def process_dataset(csv_path, output_dir, is_emotion=False):
         ])
     else:
         # toxicity labels (single integer)
-        labels = torch.tensor(df["label_encoded"].tolist(), dtype=torch.long)
+        labels = torch.tensor(df["label_encoded"].tolist(), dtype=torch.float32)
 
     # split train/val/test (80/10/10)
     ## Train, test/val

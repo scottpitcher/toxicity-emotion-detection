@@ -11,6 +11,11 @@ import os
 import logging
 from train_utils import load_toxicity_data, train_baseline
 from model import BaselineBERT
+import argparse
+import pandas as pd
+from pathlib import Path
+from compute_weights import load_class_weights
+
 
 # Setup logging
 logging.basicConfig(
@@ -23,6 +28,30 @@ logger = logging.getLogger(__name__)
 def main():
     """Main training function for baseline."""
     
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--weighted", type=str, default="False",
+                        help="True/False — whether to use class-weighted loss.")
+    args = parser.parse_args()
+
+    # normalize string to bool
+    weighted_flag = args.weighted.lower() == "true"
+
+
+    ## CLASS WEIGHT LOGIC ##
+    if weighted_flag:
+        logger.info("Loading class weights for toxicity labels...")
+
+        # baseline should always use the NON-SAMPLED weights
+        class_weights = load_class_weights(task="toxicity", sampled=False)
+
+        logger.info(f"Class weights: {class_weights}")
+
+    else:
+        class_weights = None
+        logger.info("Not using class-weighted loss.")
+
+
+    ## TRAIN MODEL ##
     # Hyperparameters
     BATCH_SIZE = 16
     EPOCHS = 3
@@ -32,7 +61,7 @@ def main():
     
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
     logger.info(f"Using device: {DEVICE}")
-    
+
     try:
         # Load toxicity data only
         logger.info("Loading toxicity data...")
@@ -40,7 +69,7 @@ def main():
         
         # Initialize baseline model
         logger.info("Initializing BaselineBERT model...")
-        model = BaselineBERT()
+        model = BaselineBERT(class_weights=class_weights)
         
         # Train model
         logger.info("Starting baseline training...")

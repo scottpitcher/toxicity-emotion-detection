@@ -11,6 +11,8 @@ import os
 import logging
 from train_utils import load_both_datasets, train_multitask
 from model import MultiTaskBERT
+import argparse
+from compute_weights import load_class_weights
 
 # Setup logging
 logging.basicConfig(
@@ -34,6 +36,31 @@ def main():
     
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
     logger.info(f"Using device: {DEVICE}")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--weighted", type=str, default="False",
+                        help="True/False — whether to use class-weighted loss.")
+    args = parser.parse_args()
+
+    # normalize string to bool
+    weighted_flag = args.weighted.lower() == "true"
+
+
+    ## CLASS WEIGHT LOGIC ##
+    if weighted_flag:
+        logger.info("Loading class weights for toxicity labels...")
+
+        # toxic should use non-sampled 
+        tox_weights = load_class_weights(task="toxicity", sampled=False)
+        emo_weights = load_class_weights(task="emotion", sampled=True)
+
+        logger.info(f"Class weights for tox: {tox_weights}")
+        logger.info(f"Class weights for emo: {emo_weights}")
+
+    else:
+        tox_weights = None
+        emo_weights = None
+        logger.info("Not using class-weighted loss.")
     
     try:
         # Load both datasets
@@ -42,7 +69,12 @@ def main():
         
         # Initialize multi-task model
         logger.info("Initializing MultiTaskBERT model...")
-        model = MultiTaskBERT(lambda_tox=LAMBDA_TOX, lambda_emo=LAMBDA_EMO)
+        model = MultiTaskBERT(
+            tox_class_weights=tox_weights,
+            emo_class_weights=emo_weights,
+            lambda_tox=LAMBDA_TOX,
+            lambda_emo=LAMBDA_EMO
+        )
         
         # Train model
         logger.info("Starting multi-task training...")

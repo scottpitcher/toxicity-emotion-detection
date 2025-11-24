@@ -135,22 +135,20 @@ def process_file(file_path: Path, processed_dir: Path, sample: bool):
                     "threat","insult","identity_hate"]
 
         if all(col in df.columns for col in train_cols):
-            # TRAIN FILE
-            one_hot = df[["toxic","severe_toxic","obscene","threat","insult","identity_hate"]]
-
             # integer encoding
-            df["label_encoded"] = one_hot.values.argmax(axis=1)
+            df["label_encoded"] = df[["toxic","severe_toxic","obscene","threat","insult","identity_hate"]].values.tolist()
 
             # integer → label string
             toxicity_labels = ["toxic","severe_toxic","obscene","threat","insult","identity_hate"]
-            df["label_text"] = df["label_encoded"].apply(lambda x: toxicity_labels[x])
-
+            df["label_text"] = df["label_encoded"].apply(
+                lambda row: [toxicity_labels[i] for i, v in enumerate(row) if v == 1]
+            )
             # keep relevant columns
             df = df[["id","comment_text","label_encoded","label_text"]]
 
             # DOWN-SAMPLE "toxic" CLASS #
             if sample:
-                toxic_mask = df["label_text"] == "toxic"
+                toxic_mask = df["label_text"].apply(lambda labels: "toxic" in labels)
                 toxic_df = df[toxic_mask]
 
                 # choose target size (12k recommended)

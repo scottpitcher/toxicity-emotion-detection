@@ -10,7 +10,8 @@ class BaselineBERT(nn.Module):
         self,
         bert_model_name: str = 'bert-base-uncased',
         num_toxicity_labels: int = 6,
-        dropout_prob: float = 0.1
+        dropout_prob: float = 0.1,
+        class_weights: torch.Tensor = None
     ):
         super().__init__()
         
@@ -23,7 +24,7 @@ class BaselineBERT(nn.Module):
             nn.Linear(hidden_size, num_toxicity_labels)
         )
         
-        self.criterion = nn.BCEWithLogitsLoss()
+        self.criterion = nn.BCEWithLogitsLoss(weight=class_weights) 
     
     def forward(self, input_ids, attention_mask):
         outputs = self.shared_encoder(
@@ -39,7 +40,7 @@ class BaselineBERT(nn.Module):
     
     def compute_loss(self, logits, labels):
         """Compute BCEWithLogitsLoss for multi-label toxicity."""
-        return self.criterion(logits, labels.float())
+        return self.criterion(logits, labels)
 
 
 class MultiTaskBERT(nn.Module):
@@ -52,7 +53,9 @@ class MultiTaskBERT(nn.Module):
         num_emotion_labels: int = 28,
         dropout_prob: float = 0.1,
         lambda_tox: float = 1.0,
-        lambda_emo: float = 1.0
+        lambda_emo: float = 1.0,
+        tox_class_weights: torch.Tensor = None,
+        emo_class_weights: torch.Tensor = None
     ):
         super().__init__()
         
@@ -75,8 +78,8 @@ class MultiTaskBERT(nn.Module):
         )
         
         # Loss functions
-        self.criterion_tox = nn.BCEWithLogitsLoss()
-        self.criterion_emo = nn.BCEWithLogitsLoss()
+        self.criterion_tox = nn.BCEWithLogitsLoss(tox_class_weights)
+        self.criterion_emo = nn.BCEWithLogitsLoss(emo_class_weights)
     
     def forward(self, input_ids, attention_mask):
         outputs = self.shared_encoder(

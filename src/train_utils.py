@@ -8,7 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
 import logging
 from tqdm import tqdm
-from transformers import AdamW, get_linear_schedule_with_warmup
+from torch.optim import AdamW
+from transformers import get_linear_schedule_with_warmup
 import os
 import torch.nn as nn
 
