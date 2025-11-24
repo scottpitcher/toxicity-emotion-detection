@@ -12,6 +12,7 @@ from transformers import BertTokenizerFast
 from sklearn.model_selection import train_test_split
 import argparse
 import shutil
+import ast
 
 
 # Load BERT tokenizer
@@ -68,6 +69,7 @@ def process_dataset(csv_path, output_dir, is_emotion=False):
         ])
     else:
         # toxicity labels (single integer)
+        df["label_encoded"] = df["label_encoded"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
         labels = torch.tensor(df["label_encoded"].tolist(), dtype=torch.float32)
 
     # split train/val/test (80/10/10)

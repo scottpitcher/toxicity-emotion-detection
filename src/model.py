@@ -24,7 +24,7 @@ class BaselineBERT(nn.Module):
             nn.Linear(hidden_size, num_toxicity_labels)
         )
         
-        self.criterion = nn.BCEWithLogitsLoss(weight=class_weights) 
+        self.criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights) 
     
     def forward(self, input_ids, attention_mask):
         outputs = self.shared_encoder(
@@ -78,8 +78,9 @@ class MultiTaskBERT(nn.Module):
         )
         
         # Loss functions
-        self.criterion_tox = nn.BCEWithLogitsLoss(tox_class_weights)
-        self.criterion_emo = nn.BCEWithLogitsLoss(emo_class_weights)
+        self.criterion_tox = nn.BCEWithLogitsLoss(pos_weight=tox_class_weights)
+        self.criterion_emo = nn.BCEWithLogitsLoss(pos_weight=emo_class_weights)
+
     
     def forward(self, input_ids, attention_mask):
         outputs = self.shared_encoder(
