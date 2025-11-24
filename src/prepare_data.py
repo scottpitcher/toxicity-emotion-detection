@@ -10,10 +10,12 @@ import pandas as pd
 import torch
 from transformers import BertTokenizerFast
 from sklearn.model_selection import train_test_split
+import argparse
+import shutil
+
 
 # Load BERT tokenizer
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-
 
 # Convert a list of emotion indices into a multi-hot vector
 def to_multi_hot(indices, num_classes=28):
@@ -105,25 +107,23 @@ def process_dataset(csv_path, output_dir, is_emotion=False):
 
 # Main entrypoint
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample", type=str, default="False",
+                        help="True/False — whether to load sampled processed data.")
+    args = parser.parse_args()
+
+    # normalize to boolean
+    sample_flag = args.sample.lower() == "true"
+
     root = Path(__file__).resolve().parent.parent
-    processed_dir = root / "data" / "processed"
+
+    processed_dir = root / "data" / ("processed_sampled" if sample_flag else "processed")
     tokenized_dir = processed_dir / "tokenized"
     tokenized_dir.mkdir(parents=True, exist_ok=True)
 
     # identify processed CSVs
     toxicity_file = processed_dir / "toxicity_raw_processed.csv"
-    emotion_train_file = processed_dir / "emotion_raw_train_processed.csv"
-    emotion_test_file = processed_dir / "emotion_raw_test_processed.csv"
-
-    # combine emotion train+test for split later
-    emotion_combined = processed_dir / "emotion_all.csv"
-
-    # combine emotion files only if not created
-    if not emotion_combined.exists():
-        df1 = pd.read_csv(emotion_train_file)
-        df2 = pd.read_csv(emotion_test_file)
-        pd.concat([df1, df2], ignore_index=True).to_csv(emotion_combined, index=False)
-        print("Created combined emotion dataset.")
+    emotion_combined = processed_dir / "emotion_raw_all_processed.csv"
 
     # process toxicity
     tox_out = tokenized_dir / "toxicity"
@@ -134,5 +134,14 @@ if __name__ == "__main__":
     emo_out = tokenized_dir / "emotion"
     emo_out.mkdir(exist_ok=True)
     process_dataset(emotion_combined, emo_out, is_emotion=True)
+
+    zip_output = processed_dir / "tokenized.zip"
+    print(f"Creating zip archive: {zip_output}")
+    shutil.make_archive(
+        base_name=str(zip_output).replace(".zip", ""),
+        format="zip",
+        root_dir=str(tokenized_dir)
+    )
+    print("Zip archive created.")
 
     print("All tokenized datasets saved.")

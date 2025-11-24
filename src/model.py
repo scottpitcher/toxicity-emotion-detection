@@ -1,4 +1,8 @@
 # model.py
+import torch
+import torch.nn as nn
+from transformers import BertModel
+
 class BaselineBERT(nn.Module):
     """Single-task BERT for toxicity classification only."""
     
