@@ -153,8 +153,8 @@ def process_file(file_path: Path, processed_dir: Path, sample: bool):
                 toxic_mask = df["label_text"] == "toxic"
                 toxic_df = df[toxic_mask]
 
-                # choose target size (30k recommended)
-                target_size = min(len(toxic_df), 30000)
+                # choose target size (12k recommended)
+                target_size = min(len(toxic_df), 12_000)
                 print(f"Down-sampling toxic from {len(toxic_df)} → {target_size}")
 
                 toxic_down = toxic_df.sample(n=target_size, random_state=42)
