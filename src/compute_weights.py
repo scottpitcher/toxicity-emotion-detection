@@ -15,28 +15,30 @@ import pandas as pd
 import torch
 
 
-def load_label_matrix(csv_path: Path) -> torch.Tensor:
-    import ast
+def load_label_matrix(csv_path: Path, num_classes: int, is_emotion: bool) -> torch.Tensor:
     df = pd.read_csv(csv_path)
 
+    # Toxicity: already multi-hot
+    if not is_emotion:
+        import ast
+        df["label_encoded"] = df["label_encoded"].apply(
+            lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+        return torch.tensor(df["label_encoded"].tolist(), dtype=torch.float32)
+
+    # Emotion: convert list-of-indices to multi-hot
     vectors = []
+    import ast
     for x in df["label_encoded"]:
-        # parse string
         if isinstance(x, str):
             x = ast.literal_eval(x)
 
-        # create empty 28-dim vector
-        vec = torch.zeros(28)
-
-        # fill with 1s for each label
+        vec = torch.zeros(num_classes)
         for idx in x:
             vec[idx] = 1.0
 
         vectors.append(vec)
 
     return torch.stack(vectors)
-
-    return torch.tensor(label_lists, dtype=torch.float32)
 
 
 def compute_class_weights(label_matrix: torch.Tensor) -> torch.Tensor:
@@ -45,11 +47,12 @@ def compute_class_weights(label_matrix: torch.Tensor) -> torch.Tensor:
         weight[c] = N_total / (num_pos[c] + eps)
     """
     eps = 1e-6
-    counts = label_matrix.sum(dim=0)
-    total = label_matrix.shape[0]
+    pos_counts = label_matrix.sum(dim=0)
+    N = label_matrix.shape[0]
 
-    weights = total / (counts + eps)
-    return weights
+
+    pos_weight = (N - pos_counts) / (pos_counts + 1e-6)
+    return pos_weight
 
 
 def compute_all_weights(root: Path):
@@ -71,7 +74,7 @@ def compute_all_weights(root: Path):
 
         if tox_csv.exists():
             print(f"Computing TOXICITY weights from: {tox_csv}")
-            label_matrix = load_label_matrix(tox_csv)
+            label_matrix = load_label_matrix(tox_csv, num_classes=6, is_emotion=False)
             weights = compute_class_weights(label_matrix)
             result[f"toxicity_{subdir_name}"] = weights.tolist()
 
@@ -82,7 +85,7 @@ def compute_all_weights(root: Path):
 
         if emo_csv.exists():
             print(f"Computing EMOTION weights from: {emo_csv}")
-            label_matrix = load_label_matrix(emo_csv)
+            label_matrix = load_label_matrix(emo_csv, num_classes=28, is_emotion=True)
             weights = compute_class_weights(label_matrix)
             result[f"emotion_{subdir_name}"] = weights.tolist()
 
