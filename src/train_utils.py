@@ -72,7 +72,7 @@ def emotion_collate_fn(batch):
 
 
 ## DATA LOADING FUNCTIONS ##
-def load_toxicity_data(data_root="../data/processed/tokenized", batch_size=16):
+def load_toxicity_data(data_root="data/processed/tokenized", batch_size=16):
     """Load toxicity datasets and create dataloaders.
     
     Args:
