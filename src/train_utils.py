@@ -344,14 +344,14 @@ def train_multitask(
                 tox_labels = tox_batch["labels"].to(device)
                 
                 tox_logits, _ = model(input_ids, attention_mask)
-                loss = model.lambda_tox * model.compute_tox_loss(tox_logits, tox_labels)
+                loss_tox = model.lambda_tox * model.compute_tox_loss(tox_logits, tox_labels)
                 
-                loss.backward()
+                # loss.backward()
                 nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-                optimizer.step()
-                scheduler.step()
+                # optimizer.step()
+                # scheduler.step()
                 
-                total_tox_loss += loss.item()
+                total_tox_loss += loss_tox.item()
                 total_batches += 1
                 
             except StopIteration:
@@ -368,14 +368,14 @@ def train_multitask(
                 emo_labels = emo_batch["labels"].to(device)
                 
                 _, emo_logits = model(input_ids, attention_mask)
-                loss = model.lambda_emo * model.compute_emo_loss(emo_logits, emo_labels)
+                loss_emo = model.lambda_emo * model.compute_emo_loss(emo_logits, emo_labels)
                 
-                loss.backward()
+                # loss.backward()
                 nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-                optimizer.step()
-                scheduler.step()
+                # optimizer.step()
+                # scheduler.step()
                 
-                total_emo_loss += loss.item()
+                total_emo_loss += loss_emo.item()
                 total_batches += 1
                 
             except StopIteration:
@@ -385,7 +385,15 @@ def train_multitask(
                 'tox_loss': f'{total_tox_loss/(step+1):.4f}',
                 'emo_loss': f'{total_emo_loss/(step+1):.4f}'
             })
-        
+
+            # Combine losses
+            loss_total = loss_tox + loss_emo
+
+            # Single backward pass
+            loss_total.backward()
+            optimizer.step()
+            scheduler.step()
+
         avg_train_tox_loss = total_tox_loss / max(1, steps_per_epoch)
         avg_train_emo_loss = total_emo_loss / max(1, steps_per_epoch)
         logger.info(f"Train Loss - Tox: {avg_train_tox_loss:.4f}, Emo: {avg_train_emo_loss:.4f}")
