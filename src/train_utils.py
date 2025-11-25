@@ -157,6 +157,70 @@ def load_emotion_data(data_root="../data/processed/tokenized", batch_size=16):
 
     return train_loader, val_loader
 
+
+def load_toxicity_test_data(data_root="data/processed/tokenized", batch_size=16):
+    """Load toxicity test dataset and create dataloader.
+
+    Args:
+        data_root: Root directory containing tokenized data
+        batch_size: Batch size for dataloader
+
+    Returns:
+        Test dataloader
+    """
+    data_root = Path(data_root)
+    tox_dir = data_root / "toxicity"
+
+    if not tox_dir.exists():
+        raise FileNotFoundError(f"Toxicity data directory not found: {tox_dir}")
+
+    logger.info("Loading toxicity test data...")
+    toxicity_test_data = torch.load(tox_dir / "test.pt")
+
+    tox_test = ToxicityDataset(toxicity_test_data)
+    logger.info(f"Toxicity - Test: {len(tox_test)}")
+
+    test_loader = DataLoader(
+        tox_test,
+        batch_size=batch_size,
+        collate_fn=toxicity_collate_fn,
+        num_workers=0
+    )
+
+    return test_loader
+
+
+def load_emotion_test_data(data_root="data/processed_sampled", batch_size=16):
+    """Load emotion test dataset and create dataloader.
+
+    Args:
+        data_root: Root directory containing tokenized data
+        batch_size: Batch size for dataloader
+
+    Returns:
+        Test dataloader
+    """
+    data_root = Path(data_root)
+    emo_dir = data_root / "emotion"
+
+    if not emo_dir.exists():
+        raise FileNotFoundError(f"Emotion data directory not found: {emo_dir}")
+
+    logger.info("Loading emotion test data...")
+    emotion_test_data = torch.load(emo_dir / "test.pt")
+
+    emo_test = EmotionDataset(emotion_test_data)
+    logger.info(f"Emotion - Test: {len(emo_test)}")
+
+    test_loader = DataLoader(
+        emo_test,
+        batch_size=batch_size,
+        collate_fn=emotion_collate_fn,
+        num_workers=0
+    )
+
+    return test_loader
+
 ## COMBINED DATA LOADING FUNCTION ##
 def load_both_datasets(data_root="../data/processed/tokenized", batch_size=16):
     """Load both toxicity and emotion datasets.
