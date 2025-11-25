@@ -72,7 +72,7 @@ def emotion_collate_fn(batch):
 
 
 ## DATA LOADING FUNCTIONS ##
-def load_toxicity_data(data_root="data/processed/tokenized", batch_size=16):
+def load_toxicity_data(tox_sampled_bool:bool = False, batch_size=16):
     """Load toxicity datasets and create dataloaders.
     
     Args:
@@ -82,6 +82,7 @@ def load_toxicity_data(data_root="data/processed/tokenized", batch_size=16):
     Returns:
         Tuple of (train_loader, val_loader)
     """
+    data_root="data/processed_sampled/tokenized" if tox_sampled_bool else "data/processed/tokenized"
     data_root = Path(data_root)
     tox_dir = data_root / "toxicity"
     
@@ -115,7 +116,7 @@ def load_toxicity_data(data_root="data/processed/tokenized", batch_size=16):
     return train_loader, val_loader
 
 
-def load_emotion_data(data_root="../data/processed/tokenized", batch_size=16):
+def load_emotion_data(emo_sampled_bool:bool = False, batch_size=16):
     """Load emotion datasets and create dataloaders.
     
     Args:
@@ -125,6 +126,7 @@ def load_emotion_data(data_root="../data/processed/tokenized", batch_size=16):
     Returns:
         Tuple of (train_loader, val_loader)
     """
+    data_root= "../data/processed_sampled/tokenized" if emo_sampled_bool else "../data/processed/tokenized"
     data_root = Path(data_root)
     emo_dir = data_root / "emotion"
     

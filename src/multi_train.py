@@ -9,7 +9,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import os
 import logging
-from train_utils import load_both_datasets, train_multitask
+from train_utils import load_toxicity_data, load_emotion_data, train_multitask
 from model import MultiTaskBERT
 import argparse
 from compute_weights import load_class_weights
@@ -33,6 +33,10 @@ def main():
     GRADIENT_CLIP = 1.0
     LAMBDA_TOX = 1.0
     LAMBDA_EMO = 1.0
+
+    # Whether to use sampled or non-sampled class weights and data
+    tox_sampled_bool = False
+    emo_sampled_bool = True
     
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
     logger.info(f"Using device: {DEVICE}")
@@ -51,8 +55,8 @@ def main():
         logger.info("Loading class weights for toxicity labels...")
 
         # toxic should use non-sampled 
-        tox_weights = load_class_weights(task="toxicity", sampled=False)
-        emo_weights = load_class_weights(task="emotion", sampled=True)
+        tox_weights = load_class_weights(task="toxicity", sampled=tox_sampled_bool)
+        emo_weights = load_class_weights(task="emotion", sampled=emo_sampled_bool)
 
         logger.info(f"Class weights for tox: {tox_weights}")
         logger.info(f"Class weights for emo: {emo_weights}")
@@ -61,11 +65,14 @@ def main():
         tox_weights = None
         emo_weights = None
         logger.info("Not using class-weighted loss.")
+
     
     try:
         # Load both datasets
         logger.info("Loading toxicity and emotion data...")
-        tox_train, tox_val, emo_train, emo_val = load_both_datasets(batch_size=BATCH_SIZE)
+        tox_train, tox_val = load_toxicity_data(tox_sampled_bool, batch_size=BATCH_SIZE)
+        emo_train, emo_val = load_emotion_data(emo_sampled_bool, batch_size=BATCH_SIZE)
+        logger.info("Data loading complete.")
         
         # Initialize multi-task model
         logger.info("Initializing MultiTaskBERT model...")
