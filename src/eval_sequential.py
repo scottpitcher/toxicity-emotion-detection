@@ -34,6 +34,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def get_emotion_labels_fixed():
+    """Load emotion labels from emotion_map.txt - fixed version."""
+    try:
+        emotion_map_path = "data/emotion_map.txt"
+        emotion_labels = []
+        with open(emotion_map_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    # Try tab-separated first
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        emotion_labels.append(parts[1])
+                    else:
+                        # Just use the line itself
+                        emotion_labels.append(line)
+
+        # If we got labels, return them
+        if emotion_labels:
+            return emotion_labels
+        else:
+            raise ValueError("No labels loaded")
+
+    except Exception as e:
+        logger.warning(f"Could not load emotion labels from file: {e}")
+        # Return default 28 emotion labels
+        return [
+            'admiration', 'amusement', 'anger', 'annoyance', 'approval', 'caring',
+            'confusion', 'curiosity', 'desire', 'disappointment', 'disapproval',
+            'disgust', 'embarrassment', 'excitement', 'fear', 'gratitude', 'grief',
+            'joy', 'love', 'nervousness', 'optimism', 'pride', 'realization',
+            'relief', 'remorse', 'sadness', 'surprise', 'neutral'
+        ]
+
+
 def evaluate_toxicity(model, test_loader, device, return_predictions=False):
     """
     Evaluate sequential model on toxicity test set.
@@ -346,7 +381,7 @@ def main():
             logger.info("(Using toxicity test set for both predictions)")
             tox_preds_corr, emo_preds_corr = evaluate_both_tasks_on_toxicity(model, tox_test_loader, DEVICE)
 
-            emotion_labels = get_emotion_labels()
+            emotion_labels = get_emotion_labels_fixed()
             toxicity_labels = get_toxicity_labels()
 
             correlations = analyze_emotion_toxicity_correlation(
