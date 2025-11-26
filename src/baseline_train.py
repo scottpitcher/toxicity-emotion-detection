@@ -56,7 +56,7 @@ def main():
     BATCH_SIZE = 16
     EPOCHS = 3
     LEARNING_RATE = 2e-5
-    MODEL_SAVE_PATH = "models/baseline_bert.pt"
+    MODEL_SAVE_PATH = "../models/baseline/baseline_bert.pt"
     GRADIENT_CLIP = 1.0
     
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
@@ -84,8 +84,26 @@ def main():
             gradient_clip=GRADIENT_CLIP
         )
         
-        logger.info(f"\nBaseline training complete! Model saved to {MODEL_SAVE_PATH}")
+        checkpoint = {
+            "model_state_dict": model.state_dict(),
+            "class_weights": class_weights,
+            "epochs": EPOCHS,
+            "lr": LEARNING_RATE
+        }
+        # First attempt: save normally
+        try:
+            os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
+            torch.save(checkpoint, MODEL_SAVE_PATH)
+            logger.info(f"Saved checkpoint to {MODEL_SAVE_PATH}")
+
+        # If that fails: try without "../"
+        except Exception:
+            alt_path = MODEL_SAVE_PATH.replace("../", "")
+            os.makedirs(os.path.dirname(alt_path), exist_ok=True)
+            torch.save(checkpoint, alt_path)
         
+        logger.info(f"Saved checkpoint to fallback path {alt_path}")        logger.info(f"Baseline training complete! Saved checkpoint to {MODEL_SAVE_PATH}")
+                
     except FileNotFoundError as e:
         logger.error(f"Data loading error: {e}")
         raise

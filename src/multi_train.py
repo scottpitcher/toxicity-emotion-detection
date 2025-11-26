@@ -29,7 +29,7 @@ def main():
     BATCH_SIZE = 16
     EPOCHS = 3
     LEARNING_RATE = 2e-5
-    MODEL_SAVE_PATH = "models/multitask_bert.pt"
+    MODEL_SAVE_PATH = "../models/multi/multitask_bert.pt"
     GRADIENT_CLIP = 1.0
     LAMBDA_TOX = 1.0
     LAMBDA_EMO = 1.0
@@ -97,6 +97,33 @@ def main():
             save_path=MODEL_SAVE_PATH,
             gradient_clip=GRADIENT_CLIP
         )
+
+        # Prepare checkpoint
+        checkpoint = {
+            "model_state_dict": model.state_dict(),
+            "tox_class_weights": tox_weights,
+            "emo_class_weights": emo_weights,
+            "lambda_tox": LAMBDA_TOX,
+            "lambda_emo": LAMBDA_EMO,
+            "epoch": EPOCHS
+        }
+
+        # Try normal save
+        try:
+            os.makedirs(os.path.dirname(MODEL_SAVE_PATH), exist_ok=True)
+            torch.save(checkpoint, MODEL_SAVE_PATH)
+            logger.info(f"Saved checkpoint to {MODEL_SAVE_PATH}")
+
+        # Fallback: save without "../" prefix (for Colab odd paths)
+        except Exception:
+            alt_path = MODEL_SAVE_PATH.replace("../", "")
+            os.makedirs(os.path.dirname(alt_path), exist_ok=True)
+            torch.save(checkpoint, alt_path)
+            logger.info(f"Saved checkpoint to fallback path {alt_path}")
+
+
+
+
         
         logger.info(f"\nMulti-task training complete! Model saved to {MODEL_SAVE_PATH}")
         
