@@ -5,6 +5,8 @@ contribute most to the toxicity prediction.
 """
 
 import torch
+import torch.nn as nn
+from transformers import BertModel
 import numpy as np
 from transformers import BertTokenizer
 import matplotlib.pyplot as plt
@@ -239,7 +241,6 @@ class ToxicityExplainer:
         
         print("\n" + "="*60 + "\n")
 
-
 def main():
     """Example usage."""
     import sys
@@ -251,9 +252,10 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # Initialize model
-    model = BaselineBERT()
-    checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    checkpoint = torch.load("../models/baseline_final.pt", map_location=device)
+
+    model = BaselineBERT()  
+    model.load_state_dict(checkpoint)
     model.to(device)
     model.eval()
     
