@@ -107,9 +107,9 @@ def main():
             alt_path = MODEL_SAVE_PATH.replace("../", "")
             os.makedirs(os.path.dirname(alt_path), exist_ok=True)
             torch.save(checkpoint, alt_path)
-        
-        logger.info(f"Saved checkpoint to fallback path {alt_path}")        
-        logger.info(f"Baseline training complete! Saved checkpoint to {MODEL_SAVE_PATH}")
+            logger.info(f"Saved checkpoint to fallback path {alt_path}")
+
+        logger.info(f"Baseline training complete!")
                 
     except FileNotFoundError as e:
         logger.error(f"Data loading error: {e}")
