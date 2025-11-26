@@ -56,7 +56,13 @@ def main():
     BATCH_SIZE = 16
     EPOCHS = 3
     LEARNING_RATE = 2e-5
-    MODEL_SAVE_PATH = "../models/baseline/baseline_bert.pt"
+
+    # Set save path based on weighted flag
+    if weighted_flag:
+        MODEL_SAVE_PATH = "../models/baseline/baseline_bert_weighted.pt"
+    else:
+        MODEL_SAVE_PATH = "../models/baseline/baseline_bert.pt"
+
     GRADIENT_CLIP = 1.0
     
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
@@ -102,7 +108,8 @@ def main():
             os.makedirs(os.path.dirname(alt_path), exist_ok=True)
             torch.save(checkpoint, alt_path)
         
-        logger.info(f"Saved checkpoint to fallback path {alt_path}")        logger.info(f"Baseline training complete! Saved checkpoint to {MODEL_SAVE_PATH}")
+        logger.info(f"Saved checkpoint to fallback path {alt_path}")        
+        logger.info(f"Baseline training complete! Saved checkpoint to {MODEL_SAVE_PATH}")
                 
     except FileNotFoundError as e:
         logger.error(f"Data loading error: {e}")
