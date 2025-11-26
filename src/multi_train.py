@@ -24,12 +24,11 @@ logger = logging.getLogger(__name__)
 
 def main():
     """Main training function for multi-task."""
-    
+
     # Hyperparameters
     BATCH_SIZE = 16
     EPOCHS = 3
     LEARNING_RATE = 2e-5
-    MODEL_SAVE_PATH = "../models/multi/multitask_bert.pt"
     GRADIENT_CLIP = 1.0
     LAMBDA_TOX = 1.0
     LAMBDA_EMO = 1.0
@@ -37,7 +36,7 @@ def main():
     # Whether to use sampled or non-sampled class weights and data
     tox_sampled_bool = False
     emo_sampled_bool = True
-    
+
     DEVICE = "cuda" if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else "cpu")
     logger.info(f"Using device: {DEVICE}")
 
@@ -48,6 +47,12 @@ def main():
 
     # normalize string to bool
     weighted_flag = args.weighted.lower() == "true"
+
+    # Set save path based on weighted flag
+    if weighted_flag:
+        MODEL_SAVE_PATH = "../models/multi/multitask_bert_weighted.pt"
+    else:
+        MODEL_SAVE_PATH = "../models/multi/multitask_bert.pt"
 
 
     ## CLASS WEIGHT LOGIC ##
