@@ -192,6 +192,52 @@ def evaluate_emotion(model, test_loader, device, return_predictions=False):
     return metrics
 
 
+def evaluate_both_tasks_on_toxicity(model, test_loader, device):
+    """
+    Evaluate both toxicity AND emotion predictions on the toxicity test set.
+    This allows for correspondence analysis between the two tasks.
+
+    Args:
+        model: MultiTaskBERT model
+        test_loader: Toxicity test dataloader
+        device: Device to run on
+
+    Returns:
+        tuple: (tox_preds, emo_preds) - predictions for both tasks on same samples
+    """
+    model.eval()
+    model.to(device)
+
+    all_tox_preds = []
+    all_emo_preds = []
+
+    logger.info("Getting both toxicity and emotion predictions for correspondence analysis...")
+
+    with torch.no_grad():
+        for batch in tqdm(test_loader, desc="Both Tasks"):
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+
+            # Forward pass - get BOTH toxicity and emotion logits
+            tox_logits, emo_logits = model(input_ids, attention_mask)
+
+            # Get predictions for both tasks
+            tox_probs = torch.sigmoid(tox_logits).cpu().numpy()
+            tox_preds = (tox_probs > 0.5).astype(int)
+
+            emo_probs = torch.sigmoid(emo_logits).cpu().numpy()
+            emo_preds = (emo_probs > 0.5).astype(int)
+
+            all_tox_preds.extend(tox_preds)
+            all_emo_preds.extend(emo_preds)
+
+    # Convert to numpy
+    all_tox_preds = np.array(all_tox_preds)
+    all_emo_preds = np.array(all_emo_preds)
+
+    return all_tox_preds, all_emo_preds
+
+
 def main():
     """Main evaluation function."""
 
@@ -276,13 +322,13 @@ def main():
             emo_test_loader = load_emotion_test_data(batch_size=args.batch_size)
             logger.info(f"Emotion test set: {len(emo_test_loader)} batches")
 
-            logger.info("Starting emotion evaluation...")
-            emo_metrics, emo_preds, emo_labels = evaluate_emotion(model, emo_test_loader, DEVICE, return_predictions=True)
+            logger.info("Starting emotion evaluation on emotion test set...")
+            emo_metrics = evaluate_emotion(model, emo_test_loader, DEVICE, return_predictions=False)
             metrics.update(emo_metrics)
 
             # Print emotion results
             logger.info("\n" + "="*60)
-            logger.info("EMOTION EVALUATION RESULTS")
+            logger.info("EMOTION EVALUATION RESULTS (on emotion test set)")
             logger.info("="*60)
             logger.info(f"F1 Score (Macro):     {emo_metrics['emo_f1_macro']:.4f}")
             logger.info(f"F1 Score (Micro):     {emo_metrics['emo_f1_micro']:.4f}")
@@ -294,14 +340,18 @@ def main():
             logger.info(f"Test Loss:            {emo_metrics['emo_test_loss']:.4f}")
             logger.info("="*60)
 
-            # Run emotion-toxicity correspondence analysis
+            # Run emotion-toxicity correspondence analysis on toxicity test set
+            # Get both predictions from the SAME samples (toxicity test set)
             logger.info("\nRunning Emotion-Toxicity Correspondence Analysis...")
+            logger.info("(Using toxicity test set for both predictions)")
+            tox_preds_corr, emo_preds_corr = evaluate_both_tasks_on_toxicity(model, tox_test_loader, DEVICE)
+
             emotion_labels = get_emotion_labels()
             toxicity_labels = get_toxicity_labels()
 
             correlations = analyze_emotion_toxicity_correlation(
-                emo_preds,
-                tox_preds,
+                emo_preds_corr,
+                tox_preds_corr,
                 emotion_labels=emotion_labels,
                 toxicity_labels=toxicity_labels
             )
