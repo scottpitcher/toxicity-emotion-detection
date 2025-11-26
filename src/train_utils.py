@@ -192,7 +192,7 @@ def load_toxicity_test_data(data_root="data/processed/tokenized", batch_size=16)
     return test_loader
 
 
-def load_emotion_test_data(data_root="data/processed_sampled", batch_size=16):
+def load_emotion_test_data(data_root="data/processed_sampled/tokenized", batch_size=16):
     """Load emotion test dataset and create dataloader.
 
     Args:
