@@ -126,7 +126,7 @@ def load_emotion_data(emo_sampled_bool:bool = False, batch_size=16):
     Returns:
         Tuple of (train_loader, val_loader)
     """
-    data_root= "../data/processed_sampled/tokenized" if emo_sampled_bool else "../data/processed/tokenized"
+    data_root= "data/processed_sampled/tokenized" if emo_sampled_bool else "data/processed/tokenized"
     data_root = Path(data_root)
     emo_dir = data_root / "emotion"
     
