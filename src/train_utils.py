@@ -398,65 +398,77 @@ def train_multitask(
         
         progress_bar = tqdm(range(steps_per_epoch), desc="Training")
         for step in progress_bar:
-            
+
+            # Zero gradients once at the start
+            optimizer.zero_grad()
+
             # Train on toxicity batch
             try:
                 tox_batch = next(tox_iter)
-                
-                optimizer.zero_grad()
-                
+
                 input_ids = tox_batch["input_ids"].to(device)
                 attention_mask = tox_batch["attention_mask"].to(device)
                 tox_labels = tox_batch["labels"].to(device)
-                
+
                 tox_logits, _ = model(input_ids, attention_mask)
                 loss_tox = model.lambda_tox * model.compute_tox_loss(tox_logits, tox_labels)
-                
-                # loss.backward()
-                nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-                # optimizer.step()
-                # scheduler.step()
-                
+
                 total_tox_loss += loss_tox.item()
                 total_batches += 1
-                
+
             except StopIteration:
                 tox_iter = iter(tox_train_loader)
-            
+                tox_batch = next(tox_iter)
+
+                input_ids = tox_batch["input_ids"].to(device)
+                attention_mask = tox_batch["attention_mask"].to(device)
+                tox_labels = tox_batch["labels"].to(device)
+
+                tox_logits, _ = model(input_ids, attention_mask)
+                loss_tox = model.lambda_tox * model.compute_tox_loss(tox_logits, tox_labels)
+
+                total_tox_loss += loss_tox.item()
+                total_batches += 1
+
             # Train on emotion batch
             try:
                 emo_batch = next(emo_iter)
-                
-                optimizer.zero_grad()
-                
+
                 input_ids = emo_batch["input_ids"].to(device)
                 attention_mask = emo_batch["attention_mask"].to(device)
                 emo_labels = emo_batch["labels"].to(device)
-                
+
                 _, emo_logits = model(input_ids, attention_mask)
                 loss_emo = model.lambda_emo * model.compute_emo_loss(emo_logits, emo_labels)
-                
-                # loss.backward()
-                nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-                # optimizer.step()
-                # scheduler.step()
-                
+
                 total_emo_loss += loss_emo.item()
                 total_batches += 1
-                
+
             except StopIteration:
                 emo_iter = iter(emo_train_loader)
-            
+                emo_batch = next(emo_iter)
+
+                input_ids = emo_batch["input_ids"].to(device)
+                attention_mask = emo_batch["attention_mask"].to(device)
+                emo_labels = emo_batch["labels"].to(device)
+
+                _, emo_logits = model(input_ids, attention_mask)
+                loss_emo = model.lambda_emo * model.compute_emo_loss(emo_logits, emo_labels)
+
+                total_emo_loss += loss_emo.item()
+                total_batches += 1
+
             progress_bar.set_postfix({
                 'tox_loss': f'{total_tox_loss/(step+1):.4f}',
                 'emo_loss': f'{total_emo_loss/(step+1):.4f}'
             })
 
-            # Combine losses
+            # Combine losses and backward
             loss_total = loss_tox + loss_emo
-
-            # Single backward pass
             loss_total.backward()
+
+            # Clip gradients and update
+            nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
             optimizer.step()
             scheduler.step()
 
