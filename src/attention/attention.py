@@ -1,3 +1,4 @@
+# attention.py
 """
 Extract and analyze BERT attention weights.
 Shows which tokens attend to which tokens across all layers.
@@ -196,7 +197,8 @@ class AttentionExtractor:
 
 def main():
     """Test attention extraction."""
-    from model import BaselineBERT
+
+    from src.model import BaselineBERT
     
     # Load model
     device = "cuda" if torch.cuda.is_available() else "cpu"
