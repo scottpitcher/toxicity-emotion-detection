@@ -126,11 +126,7 @@ def main():
             torch.save(checkpoint, alt_path)
             logger.info(f"Saved checkpoint to fallback path {alt_path}")
 
-
-
-
-        
-        logger.info(f"\nMulti-task training complete! Model saved to {MODEL_SAVE_PATH}")
+        logger.info(f"\nMulti-task training complete!")
         
     except FileNotFoundError as e:
         logger.error(f"Data loading error: {e}")
