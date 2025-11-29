@@ -76,7 +76,7 @@ class AttributionCalculator:
             
             # Interpolated embeddings
             interpolated_embeddings = baseline_embeddings + alpha * (input_embeddings - baseline_embeddings)
-            interpolated_embeddings.requires_grad = True
+            interpolated_embeddings = interpolated_embeddings.detach().requires_grad_(True)
             
             # Forward pass
             outputs = self.model.shared_encoder(
@@ -110,7 +110,7 @@ class AttributionCalculator:
         attribution = (input_embeddings_detached - baseline_embeddings) * avg_grads
         
         # Sum across embedding dimension
-        attribution_scores = attribution.sum(dim=-1)[0].cpu().numpy()  # (128,)
+        attribution_scores = attribution.sum(dim=-1)[0].detach().cpu().numpy()  
         
         # Get tokens
         tokens = self.tokenizer.convert_ids_to_tokens(input_ids[0].cpu().numpy())
@@ -137,6 +137,31 @@ class AttributionCalculator:
             attributions[class_name] = attr_scores
         
         return tokens, attributions
+    def get_top_attributed_tokens(self, text: str, class_idx: int = 0, top_k: int = 5) -> List[Dict]:
+        """
+        Get top-k tokens by absolute attribution for a class.
+        
+        Args:
+            text: Input text
+            class_idx: Toxicity class
+            top_k: Number of top tokens to return
+            
+        Returns:
+            List of dicts with token, attribution, sign
+        """
+        tokens, attr = self.get_integrated_gradients(text, class_idx)
+        
+        # Get top by absolute value
+        top_indices = np.argsort(np.abs(attr))[-top_k:][::-1]
+        
+        result = []
+        for idx in top_indices:
+            result.append({
+                'token': tokens[idx],
+                'attribution': float(attr[idx]),
+                'sign': 'increases' if attr[idx] > 0 else 'decreases',
+                'index': idx
+            })
     
     def get_gradient_saliency(self, text: str) -> Tuple[List[str], np.ndarray]:
         """

@@ -69,7 +69,7 @@ class SingleModelVisualizer:
         ax2 = fig.add_subplot(gs[1])
         self._draw_attribution_matrix(ax2, tokens_attr, attributions)
         
-        # ===== Panel 3: Predictions =====
+        # Panel 3: Predictions 
         ax3 = fig.add_subplot(gs[2])
         self._draw_predictions(ax3, predictions)
         

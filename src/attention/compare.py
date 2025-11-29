@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from typing import Tuple, List, Dict
 
-from attribution import AttributionCalculator
-from predictions import PredictionGetter
+from src.attention.attribution import AttributionCalculator
+from src.attention.predictions import PredictionGetter
 
 
 class ModelComparator:
@@ -95,6 +95,86 @@ class ModelComparator:
         }
         
         return comparison
+    def find_disagreement_cases(self, texts: List[str], threshold: float = 0.05) -> List[Dict]:
+        """
+        Find texts where baseline and multi-task disagree.
+        
+        Args:
+            texts: List of test texts
+            threshold: Prediction difference threshold to count as disagreement
+            
+        Returns:
+            List of disagreement cases with attributions
+        """
+        disagreements = []
+        
+        for text in texts:
+            preds_comp = self.compare_predictions(text)
+            
+            # Find any class where models disagreed significantly
+            for class_name in preds_comp['model1'].keys():
+                diff = abs(preds_comp['differences'][class_name])
+                
+                if diff > threshold:
+                    # Get attributions for this class
+                    class_idx = self.attr1.class_names.index(class_name)
+                    attr_comp = self.compare_attributions(text, class_idx)
+                    
+                    disagreements.append({
+                        'text': text,
+                        'class': class_name,
+                        'model1_pred': preds_comp['model1'][class_name],
+                        'model2_pred': preds_comp['model2'][class_name],
+                        'difference': preds_comp['differences'][class_name],
+                        'agreement': preds_comp['agreement'][class_name],
+                        'tokens': attr_comp['tokens'],
+                        'model1_attr': attr_comp['model1_attributions'],
+                        'model2_attr': attr_comp['model2_attributions'],
+                        'attr_diff': attr_comp['differences']
+                    })
+        
+        return disagreements
+    
+    def analyze_emotion_attribution(self, texts: List[str], 
+                                    emotion_keywords: List[str] = None) -> Dict:
+        """
+        Check if multi-task assigns higher attribution to emotion words.
+        
+        Args:
+            texts: List of test texts
+            emotion_keywords: List of emotion-related words to track
+            
+        Returns:
+            Statistics on emotion word attribution across models
+        """
+        if emotion_keywords is None:
+            emotion_keywords = [
+                'angry', 'sad', 'upset', 'hurt', 'hate', 'love', 'fear', 'scared',
+                'happy', 'glad', 'furious', 'devastated', 'frustrated', 'anxious'
+            ]
+        
+        emotion_attr_baseline = []
+        emotion_attr_multitask = []
+        
+        for text in texts:
+            tokens, attr1 = self.attr1.get_integrated_gradients(text, class_idx=0)
+            tokens, attr2 = self.attr2.get_integrated_gradients(text, class_idx=0)
+            
+            for i, token in enumerate(tokens):
+                # Check if token is emotion-related
+                if any(emotion_word in token.lower() for emotion_word in emotion_keywords):
+                    emotion_attr_baseline.append(attr1[i])
+                    emotion_attr_multitask.append(attr2[i])
+        
+        return {
+            'emotion_keywords_tracked': emotion_keywords,
+            'baseline_mean_emotion_attr': np.mean(emotion_attr_baseline) if emotion_attr_baseline else 0,
+            'multitask_mean_emotion_attr': np.mean(emotion_attr_multitask) if emotion_attr_multitask else 0,
+            'baseline_emotion_attr_std': np.std(emotion_attr_baseline) if emotion_attr_baseline else 0,
+            'multitask_emotion_attr_std': np.std(emotion_attr_multitask) if emotion_attr_multitask else 0,
+            'emotion_tokens_found': len(emotion_attr_baseline),
+            'difference': np.mean(emotion_attr_multitask) - np.mean(emotion_attr_baseline) if emotion_attr_multitask else 0
+        }
     
     def visualize_comparison(self, text: str, output_path: str = None, 
                             figsize: Tuple[int, int] = (18, 12)):
@@ -122,17 +202,17 @@ class ModelComparator:
         # Create figure
         fig, axes = plt.subplots(2, 2, figsize=figsize)
         
-        # ===== Top Left: Model1 Predictions =====
+        #  Top Left: Model1 Predictions 
         self._draw_predictions(axes[0, 0], preds1, f'{self.model1_name} Predictions')
         
-        # ===== Top Right: Model2 Predictions =====
+        #  Top Right: Model2 Predictions 
         self._draw_predictions(axes[0, 1], preds2, f'{self.model2_name} Predictions')
         
-        # ===== Bottom Left: Model1 Attribution Heatmap =====
+        #  Bottom Left: Model1 Attribution Heatmap 
         self._draw_attribution_heatmap(axes[1, 0], tokens, attr1, 
                                       f'{self.model1_name} Token Attribution')
         
-        # ===== Bottom Right: Model2 Attribution Heatmap =====
+        #  Bottom Right: Model2 Attribution Heatmap 
         self._draw_attribution_heatmap(axes[1, 1], tokens, attr2, 
                                       f'{self.model2_name} Token Attribution')
         
@@ -244,18 +324,22 @@ class ModelComparator:
 
 def main():
     """Test comparison."""
-    from model import BaselineBERT, MultiTaskBERT
+    from src.model import BaselineBERT, MultiTaskBERT
     
     # Load models
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     baseline = BaselineBERT()
-    checkpoint = torch.load("models/baseline_bert.pt", map_location=device)
-    baseline.load_state_dict(checkpoint['model_state_dict'])
+    checkpoint = torch.load("models/bert_base_w.pt", map_location=device)
+    state_dict = {k: v for k, v in checkpoint['model_state_dict'].items() 
+                  if not k.startswith('criterion')}
+    baseline.load_state_dict(state_dict)
     
     multitask = MultiTaskBERT()
-    checkpoint = torch.load("models/multitask_bert.pt", map_location=device)
-    multitask.load_state_dict(checkpoint['model_state_dict'])
+    checkpoint = torch.load("models/bert_multi_w.pt", map_location=device)
+    state_dict = {k: v for k, v in checkpoint['model_state_dict'].items() 
+                  if not k.startswith('criterion')}
+    multitask.load_state_dict(state_dict)
     
     # Create comparator
     comparator = ModelComparator(baseline, multitask, device=device,
@@ -269,9 +353,46 @@ def main():
         "This is wonderful"
     ]
     
+    # Basic comparisons
     for text in test_texts:
         comparator.print_comparison_summary(text)
         comparator.visualize_comparison(text, output_path=f"comparison_{hash(text) % 10000}.png")
+
+    
+    print("\n" + "="*90)
+    print("DISAGREEMENT ANALYSIS")
+    print("="*90)
+    
+    # Find cases where models disagree
+    disagreements = comparator.find_disagreement_cases(test_texts)
+    
+    for case in disagreements:
+        print(f"\nText: \"{case['text']}\"")
+        print(f"Class: {case['class']}")
+        print(f"Baseline: {case['model1_pred']:.4f}, Multi-Task: {case['model2_pred']:.4f}")
+        print(f"Agreement: {case['agreement']}")
+        
+        # Show top tokens for each model
+        print(f"\nBaseline top tokens:")
+        for i in np.argsort(np.abs(case['model1_attr']))[-3:][::-1]:
+            print(f"  {case['tokens'][i]}: {case['model1_attr'][i]:.4f}")
+        
+        print(f"\nMulti-Task top tokens:")
+        for i in np.argsort(np.abs(case['model2_attr']))[-3:][::-1]:
+            print(f"  {case['tokens'][i]}: {case['model2_attr'][i]:.4f}")
+    
+    print("\n" + "="*90)
+    print("EMOTION WORD ATTRIBUTION")
+    print("="*90)
+    
+    # Analyze emotion attribution
+    emotion_stats = comparator.analyze_emotion_attribution(test_texts)
+    
+    print(f"\nBaseline mean emotion attribution: {emotion_stats['baseline_mean_emotion_attr']:.4f}")
+    print(f"Multi-Task mean emotion attribution: {emotion_stats['multitask_mean_emotion_attr']:.4f}")
+    print(f"Difference: {emotion_stats['difference']:.4f}")
+    print(f"Emotion tokens analyzed: {emotion_stats['emotion_tokens_found']}")
+
 
 
 if __name__ == "__main__":
